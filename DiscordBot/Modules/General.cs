@@ -21,6 +21,7 @@ namespace DiscordBot.Modules
                 {
                     return;
                 }
+                channelId = id;
             }
             if (String.IsNullOrEmpty(channelId))
             {
