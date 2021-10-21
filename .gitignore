@@ -6,7 +6,6 @@ DiscordBot/_config.yml
 *.dll
 *.exe
 *.pdb
-*.csproj
 DiscordBot/obj/Debug/net5.0/.NETCoreApp,Version=v5.0.AssemblyAttributes.cs
 DiscordBot/obj/Debug/net5.0/DiscordBot.AssemblyInfo.cs
 DiscordBot/obj/Debug/net5.0/DiscordBot.AssemblyInfoInputs.cache
@@ -21,4 +20,3 @@ DiscordBot/obj/DiscordBot.csproj.nuget.g.props
 DiscordBot/obj/DiscordBot.csproj.nuget.g.targets
 DiscordBot/obj/project.nuget.cache
 DiscordBot/obj/rider.project.restore.info
-DiscordBot.sln
