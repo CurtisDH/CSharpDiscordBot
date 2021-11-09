@@ -39,6 +39,7 @@ namespace DiscordBot
             {
                 return;
             }
+
             char prefix = _prefix;
             var context = new SocketCommandContext(_client, message);
             ServerConfig config = Program.GetConfigFromServerId(context.Guild.Id.ToString());
@@ -59,13 +60,16 @@ namespace DiscordBot
                     {
                         var errorMessage = await context.Channel.SendMessageAsync("Error:" + result.ErrorReason);
                         await General.DeleteMessage(errorMessage, 5000);
-                        await General.DeleteMessage(message,0);
+                        await General.DeleteMessage(message, 0);
                     }
-                    return; 
+
+                    return;
                 }
+
                 Program.Print($"Ignoring Channel:{message.Channel.Name} from server{context.Guild.Name}");
             }
         }
+
         private bool IsChannelValid(ServerConfig cfg, SocketMessage message)
         {
             foreach (var channel in cfg.IgnoreListChannelIDs)
@@ -78,6 +82,7 @@ namespace DiscordBot
 
             return true;
         }
+
         private Task OnReady()
         {
             Program.Print($"Connected as {_client.CurrentUser.Username}");
@@ -86,7 +91,5 @@ namespace DiscordBot
             Program.Print("Finished setup");
             return Task.CompletedTask;
         }
-
-        
     }
 }

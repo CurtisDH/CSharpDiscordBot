@@ -49,7 +49,7 @@ namespace DiscordBot
                 {
                     await _client.LoginAsync(TokenType.Bot, token);
                     verified = true;
-                    Console.WriteLine("Token accepted. Not saving to file");
+                    Console.WriteLine("Token accepted.");
                 }
                 catch
                 {
@@ -71,7 +71,6 @@ namespace DiscordBot
                     continue;
                 }
 
-                Console.WriteLine("Breaking");
                 token = input;
                 break;
             }

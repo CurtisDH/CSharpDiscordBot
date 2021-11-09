@@ -19,18 +19,19 @@ namespace DiscordBot
             string dir = AppContext.BaseDirectory + "/_config.yml";
             if (!File.Exists(dir))
             {
-                Program.Print("Warning!! Config file doesn't exist.. Creating one:"+dir);
-                File.WriteAllText(dir,"prefix: '!'" +
-                                      "\n" +
-                                      "tokens:\n" +
-                                      "discord: --Ensure this line is indented");
+                Program.Print("Warning!! Config file doesn't exist.. Creating one:" + dir);
+                File.WriteAllText(dir, "prefix: '!'" +
+                                       "\n" +
+                                       "tokens:\n" +
+                                       "discord: --Ensure this line is indented");
             }
+
             var configBuilder = new ConfigurationBuilder()
                 .SetBasePath(AppContext.BaseDirectory)
                 .AddYamlFile("_config.yml");
             Configuration = configBuilder.Build();
         }
-        
+
         public static async Task RunAsync(string[] args)
         {
             var bot = new Startup(args);
@@ -51,16 +52,16 @@ namespace DiscordBot
         private void ConfigureServices(IServiceCollection services)
         {
             services.AddSingleton(new DiscordSocketClient(new DiscordSocketConfig
-            {
-                LogLevel = Discord.LogSeverity.Verbose,
-                MessageCacheSize = 1000
-            }))
+                {
+                    LogLevel = Discord.LogSeverity.Verbose,
+                    MessageCacheSize = 1000
+                }))
                 .AddSingleton(new CommandService(new CommandServiceConfig()
-            {
-                LogLevel = Discord.LogSeverity.Verbose,
-                DefaultRunMode = RunMode.Async,
-                CaseSensitiveCommands = false
-            }))
+                {
+                    LogLevel = Discord.LogSeverity.Verbose,
+                    DefaultRunMode = RunMode.Async,
+                    CaseSensitiveCommands = false
+                }))
                 .AddSingleton<CommandHandler>()
                 .AddSingleton<StartupService>()
                 .AddSingleton(Configuration);
