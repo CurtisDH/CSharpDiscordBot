@@ -108,6 +108,15 @@ namespace DiscordBot.Modules
             await DeleteMessage(Context.Message, 0);
         }
 
+        [Command("prune")]
+        [RequireBotPermission(ChannelPermission.ManageMessages)]
+        public async Task Prune(int amount)
+        {
+            var messages = await Context.Channel.GetMessagesAsync(amount + 1)
+                .Flatten().ToArrayAsync();
+            await (Context.Channel as SocketTextChannel).DeleteMessagesAsync(messages);
+        }
+
         [Command("play")] //TODO allow for search terms.
         public async Task Play(params string[] args)
         {
