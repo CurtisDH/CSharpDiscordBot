@@ -7,6 +7,10 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
+using Discord.WebSocket;
+using YoutubeSearchApi.Net;
+using YoutubeSearchApi.Net.Backends;
+using YoutubeSearchApi.Net.Objects;
 
 namespace DiscordBot.Modules
 {
@@ -105,9 +109,25 @@ namespace DiscordBot.Modules
         }
 
         [Command("play")] //TODO allow for search terms.
-        public async Task Play(string url)
+        public async Task Play(params string[] args)
         {
-            //Youtube throttles downloads to 50-70kb/s.Choosing worst quality until I discover a more elaborate workaround
+            string url = args[0];
+            YoutubeVideo videoInfo = null;
+            if (!args[0].Contains("https://www.youtube.com/watch?v="))
+            {
+                Program.Print("No URL found. Attempting to search..");
+                videoInfo = await GetVideoInfoFromSearchTerm(args);
+                if (videoInfo == null)
+                {
+                    await Context.Channel.SendMessageAsync($"No search results found");
+                    Program.Print("No search results found returning..");
+                    return;
+                }
+
+                url = videoInfo.Url;
+                Program.Print($"Search successful URL:{url}");
+            }
+
             var fileName = "audio.mp3";
             var outputDir = Path.Combine(AppContext.BaseDirectory, Context.Guild.Id.ToString(), "media", fileName);
             if (File.Exists(outputDir))
@@ -115,46 +135,78 @@ namespace DiscordBot.Modules
                 File.Delete(outputDir);
             }
 
-            var processInfo = new ProcessStartInfo("youtube-dl.exe", $"-f worstaudio {url} -o {outputDir}");
+            if (videoInfo == null)
+            {
+                //stripping the original args as the URL should already be set at this point. 
+                //This prevents errors if the user adds text at the end of a url
+                args = new[] {url};
+                videoInfo = await GetVideoInfoFromSearchTerm(args);
+            }
+
+            var embeddedMessage = GetEmbeddedMessageFromVideoInfo(videoInfo);
+            await Context.Channel.SendMessageAsync("", false, embeddedMessage);
+
+            //https://github.com/yt-dlp/yt-dlp 
+            DownloadAudio("yt-dlp", url, outputDir);
+        }
+
+        private void DownloadAudio(string processName, string url, string outputDir)
+        {
+            var arguments = $"-f worstaudio {url} -o {outputDir}";
+            Console.WriteLine(arguments);
+            var processInfo = new ProcessStartInfo(processName, arguments);
             processInfo.CreateNoWindow = true;
             processInfo.UseShellExecute = false;
             processInfo.RedirectStandardError = true;
             processInfo.RedirectStandardOutput = true;
-
-            Program.Print("Processing..");
-            var msg = await Context.Channel.SendMessageAsync("Processing request...");
 
             var process = Process.Start(processInfo);
 
             process.OutputDataReceived += (object sender, DataReceivedEventArgs e) =>
                 Program.Print($"output Server:{Context.Guild.Name}>>{e.Data}");
             process.BeginOutputReadLine();
-            Program.Print("Done..");
             process.ErrorDataReceived += (object sender, DataReceivedEventArgs e) =>
                 Program.Print("error>>" + e.Data);
             process.BeginOutputReadLine();
 
             process.WaitForExit();
-            await DeleteMessage(msg, 0);
-            msg = await Context.Channel.SendMessageAsync("Completed");
-            await DeleteMessage(msg, 2500);
-
             Console.WriteLine("ExitCode: {0}", process.ExitCode);
             process.Close();
         }
 
-        private string GetIdFromURL(string url)
+        private Embed GetEmbeddedMessageFromVideoInfo(YoutubeVideo videoInfo)
         {
-            var response = url.Split("https://www.youtube.com/watch?v=");
+            var eb = new EmbedBuilder();
+            eb.AddField($"Video:", videoInfo.Title, true);
+            eb.AddField($"Duration:", videoInfo.Duration, true);
+            eb.AddField($"URL:", videoInfo.Url, true);
+            eb.WithThumbnailUrl(videoInfo.ThumbnailUrl);
+            eb.WithColor(Color.Green);
+            return eb.Build();
+        }
 
-            if (response.Length > 1)
+        private async Task<YoutubeVideo>
+            GetVideoInfoFromSearchTerm(string[] searchTerms) //TODO write own search package
+        {
+            //https://www.youtube.com/results?search_query=search+test
+            using (var httpClient = new HttpClient())
             {
-                Console.WriteLine(response[1]);
-                return response[1];
-            }
+                string searchTerm = String.Empty;
+                foreach (var s in searchTerms)
+                {
+                    searchTerm += s + " ";
+                }
 
-            Console.WriteLine(response[0]);
-            return response[0];
+                DefaultSearchClient client = new DefaultSearchClient(new YoutubeSearchBackend());
+                var responseObject = await client.SearchAsync(httpClient, searchTerm, maxResults: 1);
+                foreach (var responseResult in responseObject.Results)
+                {
+                    var video = (YoutubeVideo) responseResult;
+                    return video;
+                }
+
+                return null;
+            }
         }
 
         public static async Task DeleteMessage(IUserMessage msg, int msDelay)
