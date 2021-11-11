@@ -13,6 +13,12 @@ namespace DiscordBot
     {
         public static async Task Main(string[] args) => await Startup.RunAsync(args);
         public static string serverConfigName = "config.json";
+        public static string SpotifyToken;
+
+        public static void SetSpotifyToken(string str)
+        {
+            SpotifyToken = str;
+        }
 
         public static void CreateJsonObject(string path, string json)
         {
@@ -92,6 +98,11 @@ namespace DiscordBot
             CreateJsonObject(path, json);
             Print($"Successfully updated config at:{path}");
             return;
+        }
+
+        public static string GetSpotifyAccessToken()
+        {
+            return string.Empty;
         }
 
         public static void CreateDirectoryAndConfigForConnectedServers(DiscordSocketClient client)

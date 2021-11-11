@@ -30,6 +30,7 @@ namespace DiscordBot
         public async Task StartAsync()
         {
             token = _config["tokens:discord"];
+            Program.SetSpotifyToken(_config["tokens:spotifySecret"]);
             if (string.IsNullOrEmpty(token))
             {
                 ConfigureToken();

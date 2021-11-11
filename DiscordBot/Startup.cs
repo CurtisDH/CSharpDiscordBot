@@ -23,7 +23,9 @@ namespace DiscordBot
                 File.WriteAllText(dir, "prefix: '!'" +
                                        "\n" +
                                        "tokens:\n" +
-                                       "discord: --Ensure this line is indented");
+                                       "discord: --Ensure this line is indented\n" +
+                                       "spotifyID: --Ensure this line is indented\n" +
+                                       "spotifySecret: --Ensure this line is indented");
             }
 
             var configBuilder = new ConfigurationBuilder()

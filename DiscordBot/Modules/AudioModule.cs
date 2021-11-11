@@ -5,6 +5,7 @@ using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Discord;
+using Discord.Audio;
 using Discord.Commands;
 using YoutubeSearchApi.Net;
 using YoutubeSearchApi.Net.Backends;
@@ -34,6 +35,7 @@ namespace DiscordBot.Modules
                 Program.Print($"Search successful URL:{url}");
             }
 
+            await General.DeleteMessage(Context.Message, 0);
             var fileName = "audio.mp3";
             var outputDir = Path.Combine(AppContext.BaseDirectory, Context.Guild.Id.ToString(), "media", fileName);
             if (File.Exists(outputDir))
@@ -53,12 +55,25 @@ namespace DiscordBot.Modules
             await Context.Channel.SendMessageAsync("", false, embeddedMessage);
 
             //https://github.com/yt-dlp/yt-dlp 
-            DownloadAudio("yt-dlp", url, outputDir);
+            Console.WriteLine("downloading audio");
+            await DownloadAudio("yt-dlp", url, outputDir,"worstaudio");
+            Console.WriteLine("connecting to voice");
+            await JoinVoiceChannel();
         }
 
-        private void DownloadAudio(string processName, string url, string outputDir)
+        private async Task JoinVoiceChannel()
         {
-            var arguments = $"-f worstaudio {url} -o {outputDir}";
+            var voiceChannel = (Context.User as IVoiceState)?.VoiceChannel;
+            if (voiceChannel != null)
+            {
+                Console.WriteLine("voice channel is not null");
+                var audioClient = await voiceChannel.ConnectAsync();
+            }
+        }
+
+        public static async Task DownloadAudio(string processName, string url, string outputDir,string quality)
+        {
+            var arguments = $"-f {quality} {url} -o {outputDir}";
             Console.WriteLine(arguments);
             var processInfo = new ProcessStartInfo(processName, arguments);
             processInfo.CreateNoWindow = true;
@@ -67,15 +82,17 @@ namespace DiscordBot.Modules
             processInfo.RedirectStandardOutput = true;
 
             var process = Process.Start(processInfo);
+            
+            //These show the progress of the download and any errors that occur.
+            //However, it also stops the process from reaching the exit code.
+            // process.OutputDataReceived += (object sender, DataReceivedEventArgs e) =>
+            //     Program.Print($"output Server:{Context.Guild.Name}>>{e.Data}");
+            // process.BeginOutputReadLine();
+            // process.ErrorDataReceived += (object sender, DataReceivedEventArgs e) =>
+            //     Program.Print("error>>" + e.Data);
+            // process.BeginOutputReadLine();
 
-            process.OutputDataReceived += (object sender, DataReceivedEventArgs e) =>
-                Program.Print($"output Server:{Context.Guild.Name}>>{e.Data}");
-            process.BeginOutputReadLine();
-            process.ErrorDataReceived += (object sender, DataReceivedEventArgs e) =>
-                Program.Print("error>>" + e.Data);
-            process.BeginOutputReadLine();
-
-            process.WaitForExit();
+            await process.WaitForExitAsync();
             Console.WriteLine("ExitCode: {0}", process.ExitCode);
             process.Close();
         }
@@ -91,7 +108,7 @@ namespace DiscordBot.Modules
             return eb.Build();
         }
 
-        private async Task<YoutubeVideo>
+        public static async Task<YoutubeVideo>
             GetVideoInfoFromSearchTerm(string[] searchTerms) //TODO write own search package
         {
             //https://www.youtube.com/results?search_query=search+test
