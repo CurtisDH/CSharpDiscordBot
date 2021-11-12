@@ -15,36 +15,47 @@ namespace DiscordBot.Modules
         [Command("downloadSpotify")]
         private async Task DownloadSpotifyPlaylist(string url)
         {
-            Console.WriteLine("test");
-
             var spotify = new SpotifyClient(Program.SpotifyToken);
-            //https://open.spotify.com/playlist/3hvBCvNhYCt3STBxOUGka2?si=   277c1cb8164844bc
-            Console.WriteLine("test123");
             var fullPlaylist = await spotify.Playlists.Get(GetIDFromSpotifyURL(url));
-            Console.WriteLine("test");
             List<Root> tracks = new List<Root>();
             var options = new JsonSerializerOptions {WriteIndented = true};
-            string json = string.Empty;
             foreach (var track in fullPlaylist.Tracks.Items)
             {
-                json = track.ToJson();
+                var json = track.ToJson();
                 tracks.Add(JsonSerializer.Deserialize<Root>(json));
-                //Console.WriteLine(json);
             }
 
-            await File.WriteAllTextAsync(AppContext.BaseDirectory + "/" + "test.json", json);
             Console.WriteLine(tracks.Count);
             foreach (var root in tracks)
             {
                 Console.WriteLine(root.Track.Name);
                 Console.WriteLine(root.Track.Artists[0].Name);
-                string[] searchTerm = {root.Track.Name, root.Track.Artists[0].Name};
-                var fileName = root.Track.Name+"-"+root.Track.Artists[0].Name+".mp3";
+
+                string[] searchTerm = {root.Track.Name, root.Track.Artists[0].Name + " Lyrics"};
+                var fileName = root.Track.Name + "-" + root.Track.Artists[0].Name + ".tmp";
+                //The following characters created issues
                 var fn = fileName.Replace(" ", "");
-                var outputDir = Path.Combine(AppContext.BaseDirectory, Context.Guild.Id.ToString(), "media", fn);
+                fn = fn.Replace("(", "");
+                fn = fn.Replace(")", "");
+                fn = fn.Replace("/", "");
+                fn = fn.Replace("\"", "");
+                fn = fn.Replace("\'", "");
+                fn = fn.Replace("#", "");
+                fn = fn.Replace(":", "");
+                var outputDir = Path.Combine(AppContext.BaseDirectory, Context.Guild.Id.ToString(),
+                    "media", GetIDFromSpotifyURL(url), fn);
+                Console.WriteLine("######################################");
+                if (File.Exists(Path.GetDirectoryName(outputDir) + "/" + Path.GetFileNameWithoutExtension(outputDir) +
+                                ".mp3"))
+                {
+                    Console.WriteLine("File exists. Skipping!");
+                    continue;
+                }
+
                 var vidInfo = await AudioModule.GetVideoInfoFromSearchTerm(searchTerm);
-                await AudioModule.DownloadAudio("yt-dlp", vidInfo.Url, outputDir,"bestaudio");
+                await AudioModule.DownloadAudio("yt-dlp", vidInfo.Url, outputDir, "bestaudio");
             }
+
             Program.Print($"Completed downloading songs total: {tracks.Count}");
         }
 
@@ -58,6 +69,7 @@ namespace DiscordBot.Modules
                 Console.WriteLine($"returning {newstring[0]}");
                 return newstring[0];
             }
+
             Console.WriteLine($"returning {url}");
             return url;
         }

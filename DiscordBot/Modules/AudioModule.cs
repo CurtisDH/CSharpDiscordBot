@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Audio;
@@ -36,7 +38,7 @@ namespace DiscordBot.Modules
             }
 
             await General.DeleteMessage(Context.Message, 0);
-            var fileName = "audio.mp3";
+            var fileName = "audio.tmp";
             var outputDir = Path.Combine(AppContext.BaseDirectory, Context.Guild.Id.ToString(), "media", fileName);
             if (File.Exists(outputDir))
             {
@@ -56,7 +58,7 @@ namespace DiscordBot.Modules
 
             //https://github.com/yt-dlp/yt-dlp 
             Console.WriteLine("downloading audio");
-            await DownloadAudio("yt-dlp", url, outputDir,"worstaudio");
+            await DownloadAudio("yt-dlp", url, outputDir, "worstaudio");
             Console.WriteLine("connecting to voice");
             await JoinVoiceChannel();
         }
@@ -71,7 +73,7 @@ namespace DiscordBot.Modules
             }
         }
 
-        public static async Task DownloadAudio(string processName, string url, string outputDir,string quality)
+        public static async Task DownloadAudio(string processName, string url, string outputDir, string quality)
         {
             var arguments = $"-f {quality} {url} -o {outputDir}";
             Console.WriteLine(arguments);
@@ -82,7 +84,7 @@ namespace DiscordBot.Modules
             processInfo.RedirectStandardOutput = true;
 
             var process = Process.Start(processInfo);
-            
+
             //These show the progress of the download and any errors that occur.
             //However, it also stops the process from reaching the exit code.
             // process.OutputDataReceived += (object sender, DataReceivedEventArgs e) =>
@@ -94,6 +96,44 @@ namespace DiscordBot.Modules
 
             await process.WaitForExitAsync();
             Console.WriteLine("ExitCode: {0}", process.ExitCode);
+            if (process.ExitCode == 0)
+            {
+                await ConvertToMp3(outputDir);
+            }
+
+            process.Close();
+        }
+
+        private static async Task ConvertToMp3(string filePath)
+        {
+            Program.Print("Converting to Mp3");
+            string fileName = string.Empty;
+            string directory = Path.GetDirectoryName(filePath);
+
+            if (File.Exists(filePath))
+            {
+                fileName = Path.GetFileNameWithoutExtension(filePath);
+            }
+
+            string output = $"{directory}/{fileName}.mp3";
+            var arguments = $"-i {filePath} -acodec mp3 {output}";
+            Console.WriteLine(arguments);
+            var processInfo = new ProcessStartInfo("ffmpeg", arguments);
+            processInfo.CreateNoWindow = true;
+            processInfo.UseShellExecute = false;
+            processInfo.RedirectStandardError = true;
+            processInfo.RedirectStandardOutput = true;
+            var process = Process.Start(processInfo);
+            await process.WaitForExitAsync();
+            Console.WriteLine("ExitCode: {0}", process.ExitCode);
+            if (process.ExitCode == 0)
+            {
+                File.Delete(filePath);
+                //Floods the console too much.
+                //Console.WriteLine($"Successfully converted file from: {filePath} to: {output}");
+                Program.Print($"Successfully downloaded and converted {fileName}");
+            }
+
             process.Close();
         }
 
