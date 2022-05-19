@@ -62,7 +62,7 @@ namespace DiscordBot.Modules
             Console.WriteLine("connecting to voice");
             await JoinVoiceChannel();
         }
-
+        [Command("join")]
         private async Task JoinVoiceChannel()
         {
             var voiceChannel = (Context.User as IVoiceState)?.VoiceChannel;

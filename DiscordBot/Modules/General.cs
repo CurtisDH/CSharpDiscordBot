@@ -1,16 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
-using YoutubeSearchApi.Net;
-using YoutubeSearchApi.Net.Backends;
-using YoutubeSearchApi.Net.Objects;
 
 namespace DiscordBot.Modules
 {
@@ -117,6 +114,27 @@ namespace DiscordBot.Modules
             await (Context.Channel as SocketTextChannel).DeleteMessagesAsync(messages);
         }
 
+        [Command("ipv4")]
+        [RequireBotPermission(ChannelPermission.ManageMessages)]
+        public async Task GetIPV4()
+        {
+            var host = await Dns.GetHostEntryAsync(Dns.GetHostName());
+            var messageList = new List<IUserMessage>();
+            messageList.Add(Context.Message);
+            foreach (var ip in host.AddressList)
+            {
+                if (ip.AddressFamily != AddressFamily.InterNetwork) continue;
+                
+                var msg = await Context.Channel.SendMessageAsync(
+                    $"Found address: {ip}");
+                messageList.Add(msg);
+
+            }
+
+            await Task.Delay(6000);
+            await (Context.Channel as SocketTextChannel).DeleteMessagesAsync(messageList.ToArray());
+        }
+        
         public static async Task DeleteMessage(IUserMessage msg, int msDelay)
         {
             await Task.Delay(msDelay);

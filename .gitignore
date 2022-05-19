@@ -20,3 +20,5 @@ DiscordBot/obj/DiscordBot.csproj.nuget.g.props
 DiscordBot/obj/DiscordBot.csproj.nuget.g.targets
 DiscordBot/obj/project.nuget.cache
 DiscordBot/obj/rider.project.restore.info
+*.mp3
+*.tmp
