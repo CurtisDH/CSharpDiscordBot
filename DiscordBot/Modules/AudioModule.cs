@@ -62,7 +62,10 @@ namespace DiscordBot.Modules
             Console.WriteLine("connecting to voice");
             await JoinVoiceChannel();
         }
-        [Command("join")]
+        // WARNING CONNECTION IS ONLY SUSTAINED IF THESE DLL'S ARE INCLUDED
+        // https://github.com/discord-net/Discord.Net/tree/dev/voice-natives
+        // libopus needs to be renamed to opus
+        [Command("join")] 
         private async Task JoinVoiceChannel()
         {
             var voiceChannel = (Context.User as IVoiceState)?.VoiceChannel;
@@ -73,9 +76,21 @@ namespace DiscordBot.Modules
             }
         }
 
+        [Command("leave")]
+        private async Task LeaveVoiceChannel()
+        {
+            var voiceChannel = (Context.User as IVoiceState)?.VoiceChannel;
+            if (voiceChannel != null)
+            {
+                Console.WriteLine("voice channel is not null");
+                await voiceChannel.DisconnectAsync();
+            }
+        }
+        
+
         public static async Task DownloadAudio(string processName, string url, string outputDir, string quality)
         {
-            var arguments = $"-f {quality} {url} -o {outputDir}";
+            var arguments = $"-f {quality} {url} -o \"{outputDir}\"";
             Console.WriteLine(arguments);
             var processInfo = new ProcessStartInfo(processName, arguments);
             processInfo.CreateNoWindow = true;
