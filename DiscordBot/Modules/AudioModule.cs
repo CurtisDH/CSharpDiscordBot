@@ -49,7 +49,7 @@ namespace DiscordBot.Modules
             {
                 //stripping the original args as the URL should already be set at this point. 
                 //This prevents errors if the user adds text at the end of a url
-                args = new[] {url};
+                args = new[] { url };
                 videoInfo = await GetVideoInfoFromSearchTerm(args);
             }
 
@@ -62,17 +62,21 @@ namespace DiscordBot.Modules
             Console.WriteLine("connecting to voice");
             await JoinVoiceChannel();
         }
+
         // WARNING CONNECTION IS ONLY SUSTAINED IF THESE DLL'S ARE INCLUDED
         // https://github.com/discord-net/Discord.Net/tree/dev/voice-natives
         // libopus needs to be renamed to opus
-        [Command("join")] 
+        [Command("join")]
         private async Task JoinVoiceChannel()
         {
+            var dir = Path.Combine(AppContext.BaseDirectory, Context.Guild.Id.ToString(), "media", "audio.mp3");
             var voiceChannel = (Context.User as IVoiceState)?.VoiceChannel;
             if (voiceChannel != null)
             {
                 Console.WriteLine("voice channel is not null");
                 var audioClient = await voiceChannel.ConnectAsync();
+                if (File.Exists(dir))
+                    await SendAsync(audioClient, dir);
             }
         }
 
@@ -86,7 +90,37 @@ namespace DiscordBot.Modules
                 await voiceChannel.DisconnectAsync();
             }
         }
-        
+
+
+        private async Task SendAsync(IAudioClient client, string path)
+        {
+            using (var ffmpeg = CreateStream(path))
+            using (var output = ffmpeg.StandardOutput.BaseStream)
+            using (var discord = client.CreatePCMStream(AudioApplication.Mixed))
+            {
+                try
+                {
+                    await output.CopyToAsync(discord);
+                }
+                finally
+                {
+                    await discord.FlushAsync();
+                }
+            }
+           
+        }
+
+        private Process CreateStream(string path)
+        {
+            return Process.Start(new ProcessStartInfo
+            {
+                FileName = "ffmpeg",
+                Arguments = $"-hide_banner -loglevel panic -i \"{path}\" -ac 2 -f s16le -ar 48000 pipe:1",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+            });
+        }
+
 
         public static async Task DownloadAudio(string processName, string url, string outputDir, string quality)
         {
@@ -99,15 +133,6 @@ namespace DiscordBot.Modules
             processInfo.RedirectStandardOutput = true;
 
             var process = Process.Start(processInfo);
-
-            //These show the progress of the download and any errors that occur.
-            //However, it also stops the process from reaching the exit code.
-            // process.OutputDataReceived += (object sender, DataReceivedEventArgs e) =>
-            //     Program.Print($"output Server:{Context.Guild.Name}>>{e.Data}");
-            // process.BeginOutputReadLine();
-            // process.ErrorDataReceived += (object sender, DataReceivedEventArgs e) =>
-            //     Program.Print("error>>" + e.Data);
-            // process.BeginOutputReadLine();
 
             await process.WaitForExitAsync();
             Console.WriteLine("ExitCode: {0}", process.ExitCode);
@@ -179,7 +204,7 @@ namespace DiscordBot.Modules
                 var responseObject = await client.SearchAsync(httpClient, searchTerm, maxResults: 1);
                 foreach (var responseResult in responseObject.Results)
                 {
-                    var video = (YoutubeVideo) responseResult;
+                    var video = (YoutubeVideo)responseResult;
                     return video;
                 }
 
