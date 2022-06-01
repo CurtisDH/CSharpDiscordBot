@@ -164,7 +164,7 @@ namespace DiscordBot.Modules
                 File.Delete(output);
             }
 
-            var arguments = $"-i \"{filePath}\" -acodec mp3 {output}";
+            var arguments = $"-y -i \"{filePath}\" -acodec mp3 {output}";
             Console.WriteLine(arguments);
             var processInfo = new ProcessStartInfo("ffmpeg", arguments);
             processInfo.CreateNoWindow = true;
