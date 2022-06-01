@@ -37,12 +37,23 @@ namespace DiscordBot
 
         public static async Task RunAsync(string[] args)
         {
-            while (!IsNetworkAvailable())
+            if (OperatingSystem.IsLinux())
             {
-                Console.WriteLine("Network connection unavailable retrying..");
-                await Task.Delay(1000);
+                while (!NetworkInterface.GetIsNetworkAvailable())
+                {
+                    Console.WriteLine("Network connection unavailable retrying..");
+                    await Task.Delay(1000);
+                }
             }
-
+            else
+            {
+                while (!IsNetworkAvailable())
+                {
+                    Console.WriteLine("Network connection unavailable retrying..");
+                    await Task.Delay(1000);
+                }
+            }
+            
             Console.WriteLine("Network connection found. Running program normally");
             var bot = new Startup(args);
             await bot.RunAsync();

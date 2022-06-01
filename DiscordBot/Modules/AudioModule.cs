@@ -17,9 +17,26 @@ namespace DiscordBot.Modules
 {
     public class AudioModule : ModuleBase
     {
+        private static bool _bCurrentlyPlayingMedia;
+        private static AudioOutStream _audioOutStream = null;
+
+        [Command("check")]
+        public async Task Check()
+        {
+            Console.WriteLine(_bCurrentlyPlayingMedia);
+        }
+
         [Command("play")] //TODO allow for search terms.
         public async Task Play(params string[] args)
         {
+            Console.WriteLine("Entry");
+            Console.WriteLine(_bCurrentlyPlayingMedia);
+            while (_bCurrentlyPlayingMedia)
+            {
+                Program.Print("Song playing, waiting.");
+                await Task.Delay(3000);
+            }
+
             string url = args[0];
             YoutubeVideo videoInfo = null;
             if (!args[0].Contains("https://www.youtube.com/watch?v="))
@@ -87,28 +104,12 @@ namespace DiscordBot.Modules
             if (voiceChannel != null)
             {
                 Console.WriteLine("voice channel is not null");
+                _audioOutStream.Clear();
+                _bCurrentlyPlayingMedia = false;
                 await voiceChannel.DisconnectAsync();
             }
         }
 
-
-        private async Task SendAsync(IAudioClient client, string path)
-        {
-            using (var ffmpeg = CreateStream(path))
-            using (var output = ffmpeg.StandardOutput.BaseStream)
-            using (var discord = client.CreatePCMStream(AudioApplication.Mixed))
-            {
-                try
-                {
-                    await output.CopyToAsync(discord);
-                }
-                finally
-                {
-                    await discord.FlushAsync();
-                }
-            }
-           
-        }
 
         private Process CreateStream(string path)
         {
@@ -122,7 +123,7 @@ namespace DiscordBot.Modules
         }
 
 
-        public static async Task DownloadAudio(string processName, string url, string outputDir, string quality)
+        public async Task DownloadAudio(string processName, string url, string outputDir, string quality)
         {
             var arguments = $"-f {quality} {url} -o \"{outputDir}\"";
             Console.WriteLine(arguments);
@@ -144,7 +145,7 @@ namespace DiscordBot.Modules
             process.Close();
         }
 
-        private static async Task ConvertToMp3(string filePath)
+        private async Task ConvertToMp3(string filePath)
         {
             Program.Print("Converting to Mp3");
             string fileName = string.Empty;
@@ -156,6 +157,12 @@ namespace DiscordBot.Modules
             }
 
             string output = $"{directory}/{fileName}.mp3";
+            if (File.Exists(output))
+            {
+                _audioOutStream?.Clear();
+                File.Delete(output);
+            }
+
             var arguments = $"-i {filePath} -acodec mp3 {output}";
             Console.WriteLine(arguments);
             var processInfo = new ProcessStartInfo("ffmpeg", arguments);
@@ -176,6 +183,7 @@ namespace DiscordBot.Modules
 
             process.Close();
         }
+
 
         private Embed GetEmbeddedMessageFromVideoInfo(YoutubeVideo videoInfo)
         {
@@ -209,6 +217,28 @@ namespace DiscordBot.Modules
                 }
 
                 return null;
+            }
+        }
+
+        private async Task SendAsync(IAudioClient client, string path)
+        {
+            _bCurrentlyPlayingMedia = true;
+            Console.WriteLine(_bCurrentlyPlayingMedia);
+            using (var ffmpeg = CreateStream(path))
+            using (var output = ffmpeg.StandardOutput.BaseStream)
+            using (var discord = client.CreatePCMStream(AudioApplication.Mixed))
+            {
+                _audioOutStream = discord;
+                try
+                {
+                    await output.CopyToAsync(discord);
+                }
+                finally
+                {
+                    await discord.FlushAsync();
+                    _bCurrentlyPlayingMedia = false;
+                    Console.WriteLine(_bCurrentlyPlayingMedia);
+                }
             }
         }
     }

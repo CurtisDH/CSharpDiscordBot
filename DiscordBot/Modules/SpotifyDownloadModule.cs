@@ -15,6 +15,7 @@ namespace DiscordBot.Modules
         [Command("downloadSpotify")]
         private async Task DownloadSpotifyPlaylist(string url)
         {
+            var audioModule = new AudioModule();
             var spotify = new SpotifyClient(Program.SpotifyToken);
             var fullPlaylist = await spotify.Playlists.Get(GetIDFromSpotifyURL(url));
             List<Root> tracks = new List<Root>();
@@ -53,7 +54,7 @@ namespace DiscordBot.Modules
                 }
 
                 var vidInfo = await AudioModule.GetVideoInfoFromSearchTerm(searchTerm);
-                await AudioModule.DownloadAudio("yt-dlp", vidInfo.Url, outputDir, "bestaudio");
+                await audioModule.DownloadAudio("yt-dlp", vidInfo.Url, outputDir, "bestaudio");
             }
 
             Program.Print($"Completed downloading songs total: {tracks.Count}");
