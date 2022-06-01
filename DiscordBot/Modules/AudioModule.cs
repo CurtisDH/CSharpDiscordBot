@@ -148,6 +148,7 @@ namespace DiscordBot.Modules
         private async Task ConvertToMp3(string filePath)
         {
             Program.Print("Converting to Mp3");
+            Program.Print(filePath);
             string fileName = string.Empty;
             string directory = Path.GetDirectoryName(filePath);
 
@@ -156,14 +157,14 @@ namespace DiscordBot.Modules
                 fileName = Path.GetFileNameWithoutExtension(filePath);
             }
 
-            string output = $"{directory}/{fileName}.mp3";
+            string output = $"\"{directory}/{fileName}.mp3\"";
             if (File.Exists(output))
             {
                 _audioOutStream?.Clear();
                 File.Delete(output);
             }
 
-            var arguments = $"-i {filePath} -acodec mp3 {output}";
+            var arguments = $"-i \"{filePath}\" -acodec mp3 {output}";
             Console.WriteLine(arguments);
             var processInfo = new ProcessStartInfo("ffmpeg", arguments);
             processInfo.CreateNoWindow = true;
