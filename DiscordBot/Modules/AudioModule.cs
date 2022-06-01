@@ -20,10 +20,10 @@ namespace DiscordBot.Modules
         private static bool _bCurrentlyPlayingMedia;
         private static AudioOutStream _audioOutStream = null;
 
-        [Command("check")]
-        public async Task Check()
+        [Command("stop")]
+        public async Task Stop()
         {
-            Console.WriteLine(_bCurrentlyPlayingMedia);
+            _audioOutStream.Clear();
         }
 
         [Command("play")] //TODO allow for search terms.
