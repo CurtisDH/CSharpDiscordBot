@@ -19,49 +19,104 @@ namespace DiscordBot.Modules
     {
         private static bool _bCurrentlyPlayingMedia;
         private static AudioOutStream _audioOutStream = null;
+        private static Queue<YoutubeVideo> _musicQueue = new();
 
         [Command("stop")]
         public async Task Stop()
         {
             _audioOutStream.Clear();
+            _bCurrentlyPlayingMedia = false;
+            General.DeleteMessage(Context.Message, 0);
         }
 
-        [Command("play")] //TODO allow for search terms.
+        [Command("queue")]
+        public async Task ViewQueue()
+        {
+            General.DeleteMessage(Context.Message, 0);
+            var eb = new EmbedBuilder();
+            int counter = 1;
+            eb.AddField("Total Queue Size", _musicQueue.Count);
+            foreach (var song in _musicQueue)
+            {
+                eb.AddField($"Video:", counter + ": " + song.Title, false);
+                eb.WithColor(Color.Purple);
+                Program.DebugPrint(song.Title);
+                counter++;
+            }
+
+            var msg = eb.Build();
+            var message = await Context.Channel.SendMessageAsync("", false, msg);
+            General.DeleteMessage(message, 10000);
+        }
+
+        [Command("skip")]
+        public async Task Skip(params string[] args) //TODO bug if queue size is 1 when skipped bot leaves 
+        {
+            List<IUserMessage> messages = new List<IUserMessage>();
+            bool isNumeric = int.TryParse(args[0], out int selectedSongCount);
+            if (!isNumeric)
+            {
+                await Context.Channel.SendMessageAsync($"Choice:'{args[0]}' is not numeric.");
+                return;
+            }
+
+            if (selectedSongCount > _musicQueue.Count)
+            {
+                await Context.Channel.SendMessageAsync($"Choice:'{selectedSongCount}' is out of range.");
+                return;
+            }
+
+            messages.Add(await Context.Channel.SendMessageAsync($"Skipping {selectedSongCount} songs"));
+            for (int i = 0; i < selectedSongCount; i++)
+            {
+                _musicQueue.Dequeue();
+            }
+
+            messages.Add(await Context.Channel.SendMessageAsync($"New Queue:"));
+            await ViewQueue();
+            _audioOutStream.Clear();
+            _bCurrentlyPlayingMedia = false;
+            await JoinVoiceChannel();
+            await General.DeleteMessage(Context.Message, 0);
+            foreach (var msg in messages)
+            {
+                await General.DeleteMessage(msg, 100);
+            }
+        }
+
+        [Command("play")]
         public async Task Play(params string[] args)
         {
-            Console.WriteLine("Entry");
-            Console.WriteLine(_bCurrentlyPlayingMedia);
-            while (_bCurrentlyPlayingMedia)
+            //TODO
+            // Async download the entire queue starting with the initial song.
+            // If songs are added to the queue download them so we can immediately play after finishing the song
+            // delete played once they are removed from queue.
+            if (args.Length == 0)
             {
-                Program.Print("Song playing, waiting.");
-                await Task.Delay(3000);
+                await JoinVoiceChannel();
+                return;
             }
+
+            Program.DebugPrint(_bCurrentlyPlayingMedia.ToString());
 
             string url = args[0];
             YoutubeVideo videoInfo = null;
             if (!args[0].Contains("https://www.youtube.com/watch?v="))
             {
-                Program.Print("No URL found. Attempting to search..");
+                Program.DebugPrint("No URL found. Attempting to search..");
                 videoInfo = await GetVideoInfoFromSearchTerm(args);
                 if (videoInfo == null)
                 {
                     await Context.Channel.SendMessageAsync($"No search results found");
-                    Program.Print("No search results found returning..");
+                    Program.DebugPrint($"No search results found from provided args:{args} returning..");
                     return;
                 }
 
                 url = videoInfo.Url;
-                Program.Print($"Search successful URL:{url}");
+                Program.DebugPrint($"Search successful URL:{url}");
             }
 
             await General.DeleteMessage(Context.Message, 0);
-            var fileName = "audio.tmp";
-            var outputDir = Path.Combine(AppContext.BaseDirectory, Context.Guild.Id.ToString(), "media", fileName);
-            if (File.Exists(outputDir))
-            {
-                File.Delete(outputDir);
-            }
-
             if (videoInfo == null)
             {
                 //stripping the original args as the URL should already be set at this point. 
@@ -70,31 +125,84 @@ namespace DiscordBot.Modules
                 videoInfo = await GetVideoInfoFromSearchTerm(args);
             }
 
-            var embeddedMessage = GetEmbeddedMessageFromVideoInfo(videoInfo);
-            await Context.Channel.SendMessageAsync("", false, embeddedMessage);
+            Console.WriteLine("here");
+            var fileName = $"{videoInfo.Id}";
+            var outputDir = Path.Combine(AppContext.BaseDirectory, Context.Guild.Id.ToString(), "media", fileName);
+            string videoMp3Path = outputDir + ".mp3";
+            outputDir += ".tmp";
+            Console.WriteLine("here");
 
-            //https://github.com/yt-dlp/yt-dlp 
-            Console.WriteLine("downloading audio");
-            await DownloadAudio("yt-dlp", url, outputDir, "worstaudio");
-            Console.WriteLine("connecting to voice");
-            await JoinVoiceChannel();
+            // Clean up any previous temp files if they exist
+            if (File.Exists(outputDir))
+            {
+                File.Delete(outputDir);
+            }
+
+            Console.WriteLine("here");
+
+
+            if (!File.Exists(videoMp3Path))
+            {
+                //https://github.com/yt-dlp/yt-dlp 
+                Program.DebugPrint("downloading audio");
+                await DownloadAudio("yt-dlp", url, outputDir, "worstaudio");
+                // does this have to be a dictionary of queues?
+            }
+
+            _musicQueue.Enqueue(videoInfo);
+            var embeddedMessage = GetEmbeddedMessageFromVideoInfo(videoInfo);
+            var addedMessage = await Context.Channel.SendMessageAsync("", false, embeddedMessage);
+
+            General.DeleteMessage(addedMessage, 2500);
+
+            Program.DebugPrint("Current Music Queue");
+            foreach (var video in _musicQueue)
+            {
+                Program.DebugPrint(video.Title);
+                Program.DebugPrint(_bCurrentlyPlayingMedia.ToString());
+            }
+
+            if (!_bCurrentlyPlayingMedia)
+            {
+                Program.DebugPrint("connecting to voice");
+                await JoinVoiceChannel();
+            }
         }
 
         // WARNING CONNECTION IS ONLY SUSTAINED IF THESE DLL'S ARE INCLUDED
         // https://github.com/discord-net/Discord.Net/tree/dev/voice-natives
         // libopus needs to be renamed to opus
+        // TODO change to different api wrapper so we don't need extra dlls for voice transmission
         [Command("join")]
         private async Task JoinVoiceChannel()
         {
-            var dir = Path.Combine(AppContext.BaseDirectory, Context.Guild.Id.ToString(), "media", "audio.mp3");
-            var voiceChannel = (Context.User as IVoiceState)?.VoiceChannel;
-            if (voiceChannel != null)
+            while (_musicQueue.Count > 0)
             {
-                Console.WriteLine("voice channel is not null");
+                _bCurrentlyPlayingMedia = true;
+                var audio = _musicQueue.Dequeue();
+                Program.DebugPrint("################# Dequeuing ####################");
+                var dir = Path.Combine(AppContext.BaseDirectory,
+                    Context.Guild.Id.ToString(), "media", $"{audio.Id}.mp3");
+                var voiceChannel = (Context.User as IVoiceState)?.VoiceChannel;
+                if (voiceChannel == null) continue;
+                Program.DebugPrint("voice channel is not null");
                 var audioClient = await voiceChannel.ConnectAsync();
                 if (File.Exists(dir))
+                {
+                    Program.DebugPrint("Playing music.");
                     await SendAsync(audioClient, dir);
+                    Program.DebugPrint("END");
+                }
+
+                Program.DebugPrint("END1");
             }
+
+            Program.DebugPrint("No music in queue.");
+            await Context.Channel.SendMessageAsync("Queue is empty.");
+            await General.DeleteMessage(Context.Message, 500);
+            await LeaveVoiceChannel();
+            _bCurrentlyPlayingMedia = false;
+            return;
         }
 
         [Command("leave")]
@@ -147,8 +255,8 @@ namespace DiscordBot.Modules
 
         private async Task ConvertToMp3(string filePath)
         {
-            Program.Print("Converting to Mp3");
-            Program.Print(filePath);
+            Program.DebugPrint("Converting to Mp3");
+            Program.DebugPrint(filePath);
             string fileName = string.Empty;
             string directory = Path.GetDirectoryName(filePath);
 
@@ -179,7 +287,7 @@ namespace DiscordBot.Modules
                 File.Delete(filePath);
                 //Floods the console too much.
                 //Console.WriteLine($"Successfully converted file from: {filePath} to: {output}");
-                Program.Print($"Successfully downloaded and converted {fileName}");
+                Program.DebugPrint($"Successfully downloaded and converted {fileName}");
             }
 
             process.Close();
@@ -238,6 +346,7 @@ namespace DiscordBot.Modules
                 {
                     await discord.FlushAsync();
                     _bCurrentlyPlayingMedia = false;
+                    Console.WriteLine("##HERE##");
                     Console.WriteLine(_bCurrentlyPlayingMedia);
                 }
             }

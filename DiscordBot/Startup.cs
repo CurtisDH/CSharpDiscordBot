@@ -20,13 +20,13 @@ namespace DiscordBot
             string dir = AppContext.BaseDirectory + "/_config.yml";
             if (!File.Exists(dir))
             {
-                Program.Print("Warning!! Config file doesn't exist.. Creating one:" + dir);
+                Program.DebugPrint("Warning!! Config file doesn't exist.. Creating one:" + dir);
                 File.WriteAllText(dir, "prefix: '!'" +
                                        "\n" +
                                        "tokens:\n" +
-                                       "discord: --Ensure this line is indented\n" +
-                                       "spotifyID: --Ensure this line is indented\n" +
-                                       "spotifySecret: --Ensure this line is indented");
+                                       "    discord: --Ensure this line is indented\n" +
+                                       "    spotifyID: --Ensure this line is indented\n" +
+                                       "    spotifySecret: --Ensure this line is indented");
             }
 
             var configBuilder = new ConfigurationBuilder()

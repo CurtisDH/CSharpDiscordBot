@@ -54,7 +54,7 @@ namespace DiscordBot
             {
                 if (IsChannelValid(config, message))
                 {
-                    Program.Print($"Valid Channel");
+                    Program.DebugPrint($"Valid Channel");
                     var result = await _commands.ExecuteAsync(context, pos, _provider);
                     if (!result.IsSuccess)
                     {
@@ -66,7 +66,7 @@ namespace DiscordBot
                     return;
                 }
 
-                Program.Print($"Ignoring Channel:{message.Channel.Name} from server{context.Guild.Name}");
+                Program.DebugPrint($"Ignoring Channel:{message.Channel.Name} from server{context.Guild.Name}");
             }
         }
 
@@ -85,10 +85,10 @@ namespace DiscordBot
 
         private Task OnReady()
         {
-            Program.Print($"Connected as {_client.CurrentUser.Username}");
+            Program.DebugPrint($"Connected as {_client.CurrentUser.Username}");
             Program.CreateDirectoryAndConfigForConnectedServers(_client);
             _prefix = Program.SetupPrefix(_config);
-            Program.Print("Finished setup");
+            Program.DebugPrint("Finished setup");
             return Task.CompletedTask;
         }
     }

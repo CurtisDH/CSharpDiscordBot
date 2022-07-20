@@ -14,6 +14,7 @@ namespace DiscordBot
         public static async Task Main(string[] args) => await Startup.RunAsync(args);
         public static string serverConfigName = "config.json";
         public static string SpotifyToken;
+        public static bool bDebug = true;
 
         public static void SetSpotifyToken(string str)
         {
@@ -33,23 +34,24 @@ namespace DiscordBot
                 string jsonString = File.ReadAllText(path);
                 if (String.IsNullOrEmpty(jsonString))
                 {
-                    Print("");
+                    DebugPrint("");
                 }
 
                 var cfg = JsonSerializer.Deserialize<ServerConfig>(jsonString);
                 return cfg;
             }
 
-            Print($"Config file not found at:{path}");
+            DebugPrint($"Config file not found at:{path}");
 
-            Print($"Creating one...");
+            DebugPrint($"Creating one...");
             CreateConfigFromServerId(id);
             return null;
         }
 
-        public static void Print(string msg)
+        public static void DebugPrint(string msg)
         {
-            Console.WriteLine($"{DateTime.Now} {msg}");
+            if (bDebug)
+                Console.WriteLine($"{DateTime.Now} {msg}");
         }
 
         private static void CreateConfigFromServerId(string id)
@@ -60,11 +62,11 @@ namespace DiscordBot
             string configDirectory = $"{guildDirectory}/{configName}";
             if (!Directory.Exists(guildDirectory))
             {
-                Program.Print($"Directory not found.. Creating Directory at:{guildDirectory}");
+                Program.DebugPrint($"Directory not found.. Creating Directory at:{guildDirectory}");
                 Directory.CreateDirectory(guildDirectory);
             }
 
-            Program.Print($"Creating config at directory: {configDirectory}");
+            Program.DebugPrint($"Creating config at directory: {configDirectory}");
             ServerSideConfigSetup(configDirectory);
         }
 
@@ -72,19 +74,19 @@ namespace DiscordBot
         {
             if (File.Exists(path))
             {
-                Print($"File exists{path}");
+                DebugPrint($"File exists{path}");
                 return;
             }
 
             var config = new ServerConfig
             {
-                Prefix = "!", Commands = new[] {"Test", "Test123"},
-                IgnoreListChannelIDs = new string[] {"899202882769915909", "899202882769915909"}
+                Prefix = "!", Commands = new[] { "Test", "Test123" },
+                IgnoreListChannelIDs = new string[] { "899202882769915909", "899202882769915909" }
             };
-            var options = new JsonSerializerOptions {WriteIndented = true};
+            var options = new JsonSerializerOptions { WriteIndented = true };
             string json = JsonSerializer.Serialize(config, options);
             CreateJsonObject(path, json);
-            Print($"Successfully created config at:{path}");
+            DebugPrint($"Successfully created config at:{path}");
             return;
         }
 
@@ -93,10 +95,10 @@ namespace DiscordBot
             var directory = AppContext.BaseDirectory;
             var configName = serverConfigName;
             var path = $"{directory}/{serverId}/{configName}";
-            var options = new JsonSerializerOptions {WriteIndented = true};
+            var options = new JsonSerializerOptions { WriteIndented = true };
             string json = JsonSerializer.Serialize(config, options);
             CreateJsonObject(path, json);
-            Print($"Successfully updated config at:{path}");
+            DebugPrint($"Successfully updated config at:{path}");
             return;
         }
 
@@ -107,7 +109,7 @@ namespace DiscordBot
 
         public static void CreateDirectoryAndConfigForConnectedServers(DiscordSocketClient client)
         {
-            Program.Print("Checking Directory for new servers");
+            Program.DebugPrint("Checking Directory for new servers");
             string directory = AppContext.BaseDirectory;
             string configName = Program.serverConfigName;
             foreach (var guild in client.Guilds)
@@ -116,41 +118,41 @@ namespace DiscordBot
                 string configDirectory = $"{guildDirectory}/{configName}";
                 if (Directory.Exists(guildDirectory))
                 {
-                    Program.Print($"Found Existing Directory:{guildDirectory}");
-                    Program.Print($"Checking for config");
+                    Program.DebugPrint($"Found Existing Directory:{guildDirectory}");
+                    Program.DebugPrint($"Checking for config");
                     if (File.Exists(configDirectory))
                     {
-                        Program.Print($"Found Existing Config:{configDirectory}");
+                        Program.DebugPrint($"Found Existing Config:{configDirectory}");
                         continue;
                     }
 
-                    Program.Print($"Config not found, creating config...");
+                    Program.DebugPrint($"Config not found, creating config...");
                     Program.ServerSideConfigSetup(configDirectory);
-                    Program.Print($"Config created at:{configDirectory}");
+                    Program.DebugPrint($"Config created at:{configDirectory}");
                     continue;
                 }
 
-                Program.Print($"Directory not found.. Creating Directory at:{guildDirectory}");
+                Program.DebugPrint($"Directory not found.. Creating Directory at:{guildDirectory}");
                 Directory.CreateDirectory(guildDirectory);
-                Program.Print($"Creating config at directory: {configDirectory}");
+                Program.DebugPrint($"Creating config at directory: {configDirectory}");
                 Program.ServerSideConfigSetup(configDirectory);
             }
 
-            Program.Print("Done");
+            Program.DebugPrint("Done");
         }
 
 
         public static char SetupPrefix(IConfigurationRoot config)
         {
-            Program.Print("Setting up prefix...");
+            Program.DebugPrint("Setting up prefix...");
             string prefixString = config["prefix"];
             if (String.IsNullOrEmpty(prefixString))
             {
-                Program.Print("Couldn't find prefix returning default '!'");
+                Program.DebugPrint("Couldn't find prefix returning default '!'");
                 return '!';
             }
 
-            Program.Print("Found prefix returning:" + prefixString);
+            Program.DebugPrint("Found prefix returning:" + prefixString);
             return char.Parse(prefixString);
         }
     }

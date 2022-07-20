@@ -19,7 +19,7 @@ namespace DiscordBot.Modules
         [Command("IgnoreChannel")]
         public async Task IgnoreChannel(string id)
         {
-            Program.Print("IgnoreChannel");
+            Program.DebugPrint("IgnoreChannel");
             var channelId = Context.Message.Channel.Id.ToString();
             if (!String.IsNullOrEmpty(id))
             {
@@ -59,7 +59,7 @@ namespace DiscordBot.Modules
         [Command("pardonChannel")]
         public async Task PardonChannel(string id)
         {
-            Program.Print($"PardonChannel:{id}");
+            Program.DebugPrint($"PardonChannel:{id}");
             if (String.IsNullOrEmpty(id))
             {
                 return;
@@ -145,7 +145,7 @@ namespace DiscordBot.Modules
         {
             foreach (var channel in channels)
             {
-                Program.Print(channel.Id.ToString());
+                Program.DebugPrint(channel.Id.ToString());
                 if (channel.Id.ToString() == id)
                 {
                     return true;
@@ -153,7 +153,7 @@ namespace DiscordBot.Modules
             }
 
             var errorMsg = await Context.Channel.SendMessageAsync($"Invalid ID:'{id}'");
-            Program.Print($"IsChannelValid:: Invalid ID:'{id}'");
+            Program.DebugPrint($"IsChannelValid:: Invalid ID:'{id}'");
             await DeleteMessage(errorMsg, 5000);
             await DeleteMessage(Context.Message, 0);
             return false;

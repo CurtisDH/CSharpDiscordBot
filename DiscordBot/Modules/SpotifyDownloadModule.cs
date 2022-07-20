@@ -57,7 +57,7 @@ namespace DiscordBot.Modules
                 await audioModule.DownloadAudio("yt-dlp", vidInfo.Url, outputDir, "bestaudio");
             }
 
-            Program.Print($"Completed downloading songs total: {tracks.Count}");
+            Program.DebugPrint($"Completed downloading songs total: {tracks.Count}");
         }
 
         private string GetIDFromSpotifyURL(string url)
