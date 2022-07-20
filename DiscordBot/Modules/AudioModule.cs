@@ -17,15 +17,15 @@ namespace DiscordBot.Modules
 {
     public class AudioModule : ModuleBase
     {
-        private static bool _bCurrentlyPlayingMedia;
-        private static AudioOutStream _audioOutStream = null;
-        private static Queue<YoutubeVideo> _musicQueue = new();
+        private static Dictionary<ulong, bool> _bCurrentlyPlayingMedia = new();
+        private static Dictionary<ulong, AudioOutStream> _audioOutStream = new();
+        private static Dictionary<ulong, Queue<YoutubeVideo>> _musicQueue = new();
 
         [Command("stop")]
         public async Task Stop()
         {
             _audioOutStream.Clear();
-            _bCurrentlyPlayingMedia = false;
+            _bCurrentlyPlayingMedia[Context.Guild.Id] = false;
             General.DeleteMessage(Context.Message, 0);
         }
 
@@ -35,8 +35,8 @@ namespace DiscordBot.Modules
             General.DeleteMessage(Context.Message, 0);
             var eb = new EmbedBuilder();
             int counter = 1;
-            eb.AddField("Total Queue Size", _musicQueue.Count);
-            foreach (var song in _musicQueue)
+            eb.AddField("Total Queue Size", _musicQueue[Context.Guild.Id].Count);
+            foreach (var song in _musicQueue[Context.Guild.Id])
             {
                 eb.AddField($"Video:", counter + ": " + song.Title, false);
                 eb.WithColor(Color.Purple);
@@ -69,13 +69,13 @@ namespace DiscordBot.Modules
             messages.Add(await Context.Channel.SendMessageAsync($"Skipping {selectedSongCount} songs"));
             for (int i = 0; i < selectedSongCount; i++)
             {
-                _musicQueue.Dequeue();
+                _musicQueue[Context.Guild.Id].Dequeue();
             }
 
             messages.Add(await Context.Channel.SendMessageAsync($"New Queue:"));
             await ViewQueue();
             _audioOutStream.Clear();
-            _bCurrentlyPlayingMedia = false;
+            _bCurrentlyPlayingMedia[Context.Guild.Id] = false;
             await JoinVoiceChannel();
             await General.DeleteMessage(Context.Message, 0);
             foreach (var msg in messages)
@@ -97,7 +97,20 @@ namespace DiscordBot.Modules
                 return;
             }
 
-            Program.DebugPrint(_bCurrentlyPlayingMedia.ToString());
+            if (!_bCurrentlyPlayingMedia.ContainsKey(Context.Guild.Id))
+            {
+                _bCurrentlyPlayingMedia.Add(Context.Guild.Id, false);
+            }
+
+            if (!_audioOutStream.ContainsKey(Context.Guild.Id))
+            {
+                _audioOutStream.Add(Context.Guild.Id, null);
+            }
+
+            if (!_musicQueue.ContainsKey(Context.Guild.Id))
+            {
+                _musicQueue.Add(Context.Guild.Id, new Queue<YoutubeVideo>());
+            }
 
             string url = args[0];
             YoutubeVideo videoInfo = null;
@@ -149,20 +162,20 @@ namespace DiscordBot.Modules
                 // does this have to be a dictionary of queues?
             }
 
-            _musicQueue.Enqueue(videoInfo);
+            _musicQueue[Context.Guild.Id].Enqueue(videoInfo);
             var embeddedMessage = GetEmbeddedMessageFromVideoInfo(videoInfo);
             var addedMessage = await Context.Channel.SendMessageAsync("", false, embeddedMessage);
 
             General.DeleteMessage(addedMessage, 2500);
 
             Program.DebugPrint("Current Music Queue");
-            foreach (var video in _musicQueue)
+            foreach (var video in _musicQueue[Context.Guild.Id])
             {
                 Program.DebugPrint(video.Title);
                 Program.DebugPrint(_bCurrentlyPlayingMedia.ToString());
             }
 
-            if (!_bCurrentlyPlayingMedia)
+            if (!_bCurrentlyPlayingMedia[Context.Guild.Id])
             {
                 Program.DebugPrint("connecting to voice");
                 await JoinVoiceChannel();
@@ -178,8 +191,8 @@ namespace DiscordBot.Modules
         {
             while (_musicQueue.Count > 0)
             {
-                _bCurrentlyPlayingMedia = true;
-                var audio = _musicQueue.Dequeue();
+                _bCurrentlyPlayingMedia[Context.Guild.Id] = true;
+                var audio = _musicQueue[Context.Guild.Id].Dequeue();
                 Program.DebugPrint("################# Dequeuing ####################");
                 var dir = Path.Combine(AppContext.BaseDirectory,
                     Context.Guild.Id.ToString(), "media", $"{audio.Id}.mp3");
@@ -201,7 +214,7 @@ namespace DiscordBot.Modules
             await Context.Channel.SendMessageAsync("Queue is empty.");
             await General.DeleteMessage(Context.Message, 500);
             await LeaveVoiceChannel();
-            _bCurrentlyPlayingMedia = false;
+            _bCurrentlyPlayingMedia[Context.Guild.Id] = false;
             return;
         }
 
@@ -213,7 +226,7 @@ namespace DiscordBot.Modules
             {
                 Console.WriteLine("voice channel is not null");
                 _audioOutStream.Clear();
-                _bCurrentlyPlayingMedia = false;
+                _bCurrentlyPlayingMedia[Context.Guild.Id] = false;
                 await voiceChannel.DisconnectAsync();
             }
         }
@@ -331,13 +344,13 @@ namespace DiscordBot.Modules
 
         private async Task SendAsync(IAudioClient client, string path)
         {
-            _bCurrentlyPlayingMedia = true;
+            _bCurrentlyPlayingMedia[Context.Guild.Id] = true;
             Console.WriteLine(_bCurrentlyPlayingMedia);
             using (var ffmpeg = CreateStream(path))
             using (var output = ffmpeg.StandardOutput.BaseStream)
             using (var discord = client.CreatePCMStream(AudioApplication.Mixed))
             {
-                _audioOutStream = discord;
+                _audioOutStream[Context.Guild.Id] = discord;
                 try
                 {
                     await output.CopyToAsync(discord);
@@ -345,7 +358,7 @@ namespace DiscordBot.Modules
                 finally
                 {
                     await discord.FlushAsync();
-                    _bCurrentlyPlayingMedia = false;
+                    _bCurrentlyPlayingMedia[Context.Guild.Id] = false;
                     Console.WriteLine("##HERE##");
                     Console.WriteLine(_bCurrentlyPlayingMedia);
                 }
