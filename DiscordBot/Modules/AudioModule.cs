@@ -21,10 +21,13 @@ namespace DiscordBot.Modules
         private static Dictionary<ulong, AudioOutStream> _audioOutStream = new();
         private static Dictionary<ulong, Queue<YoutubeVideo>> _musicQueue = new();
 
+        // If two media are processed at the same time ffmpeg hangs and the bot refuses to play music
+        private static bool _bProcessingMedia = false; // Such a horrible way this is gonna be so slow.
+
         [Command("stop")]
         public async Task Stop()
         {
-            _audioOutStream.Clear();
+            _audioOutStream[Context.Guild.Id].Clear();
             _bCurrentlyPlayingMedia[Context.Guild.Id] = false;
             General.DeleteMessage(Context.Message, 0);
         }
@@ -52,36 +55,36 @@ namespace DiscordBot.Modules
         [Command("skip")]
         public async Task Skip(params string[] args) //TODO bug if queue size is 1 when skipped bot leaves 
         {
-            List<IUserMessage> messages = new List<IUserMessage>();
             bool isNumeric = int.TryParse(args[0], out int selectedSongCount);
+            IUserMessage msg = null;
             if (!isNumeric)
             {
-                await Context.Channel.SendMessageAsync($"Choice:'{args[0]}' is not numeric.");
+                msg = await Context.Channel.SendMessageAsync($"Choice:'{args[0]}' is not numeric.");
+                General.DeleteMessage(msg, 0);
                 return;
             }
 
-            if (selectedSongCount > _musicQueue.Count)
+            if (selectedSongCount > _musicQueue[Context.Guild.Id].Count)
             {
-                await Context.Channel.SendMessageAsync($"Choice:'{selectedSongCount}' is out of range.");
+                msg = await Context.Channel.SendMessageAsync($"Choice:'{selectedSongCount}' is out of range.");
+                General.DeleteMessage(msg, 0);
                 return;
             }
 
-            messages.Add(await Context.Channel.SendMessageAsync($"Skipping {selectedSongCount} songs"));
+            msg = (await Context.Channel.SendMessageAsync($"Skipping {selectedSongCount} songs"));
+            General.DeleteMessage(msg, 0);
             for (int i = 0; i < selectedSongCount; i++)
             {
                 _musicQueue[Context.Guild.Id].Dequeue();
             }
 
-            messages.Add(await Context.Channel.SendMessageAsync($"New Queue:"));
+            msg = (await Context.Channel.SendMessageAsync($"New Queue:"));
+            General.DeleteMessage(msg, 0);
             await ViewQueue();
-            _audioOutStream.Clear();
+            _audioOutStream[Context.Guild.Id].Clear();
             _bCurrentlyPlayingMedia[Context.Guild.Id] = false;
             await JoinVoiceChannel();
             await General.DeleteMessage(Context.Message, 0);
-            foreach (var msg in messages)
-            {
-                await General.DeleteMessage(msg, 100);
-            }
         }
 
         [Command("play")]
@@ -225,7 +228,7 @@ namespace DiscordBot.Modules
             if (voiceChannel != null)
             {
                 Console.WriteLine("voice channel is not null");
-                _audioOutStream.Clear();
+                _audioOutStream[Context.Guild.Id].Clear();
                 _bCurrentlyPlayingMedia[Context.Guild.Id] = false;
                 await voiceChannel.DisconnectAsync();
             }
@@ -262,12 +265,19 @@ namespace DiscordBot.Modules
             {
                 await ConvertToMp3(outputDir);
             }
-
             process.Close();
         }
 
         private async Task ConvertToMp3(string filePath)
         {
+            while (_bProcessingMedia)
+            {
+                Program.DebugPrint("Media already being processed sleeping 1000ms..");
+                await Task.Delay(1000);
+            }
+            Program.DebugPrint("FFMPEG: Started processing media");
+
+            _bProcessingMedia = true;
             Program.DebugPrint("Converting to Mp3");
             Program.DebugPrint(filePath);
             string fileName = string.Empty;
@@ -281,7 +291,7 @@ namespace DiscordBot.Modules
             string output = $"\"{directory}/{fileName}.mp3\"";
             if (File.Exists(output))
             {
-                _audioOutStream?.Clear();
+                _audioOutStream[Context.Guild.Id]?.Clear();
                 File.Delete(output);
             }
 
@@ -294,7 +304,10 @@ namespace DiscordBot.Modules
             processInfo.RedirectStandardOutput = true;
             var process = Process.Start(processInfo);
             await process.WaitForExitAsync();
-            Console.WriteLine("ExitCode: {0}", process.ExitCode);
+            Program.DebugPrint("Media finished processing");
+            _bProcessingMedia = false;
+            Console.WriteLine("Ffmpeg ExitCode: {0}", process.ExitCode);
+            Console.WriteLine("########################################################");
             if (process.ExitCode == 0)
             {
                 File.Delete(filePath);
@@ -335,9 +348,12 @@ namespace DiscordBot.Modules
                 foreach (var responseResult in responseObject.Results)
                 {
                     var video = (YoutubeVideo)responseResult;
+                    Program.DebugPrint("Returning VideoInfo");
+
                     return video;
                 }
 
+                Program.DebugPrint("VideoInfo Returning null");
                 return null;
             }
         }
@@ -360,7 +376,6 @@ namespace DiscordBot.Modules
                     await discord.FlushAsync();
                     _bCurrentlyPlayingMedia[Context.Guild.Id] = false;
                     Console.WriteLine("##HERE##");
-                    Console.WriteLine(_bCurrentlyPlayingMedia);
                 }
             }
         }
